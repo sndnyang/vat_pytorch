@@ -1,5 +1,5 @@
 from .fnn import FNN
-from source import layers as L
+from ..source import layers as L
 
 
 class MLP(FNN):

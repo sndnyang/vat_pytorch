@@ -19,6 +19,22 @@ wlog = logger.info
 exp_seed = random.randrange(sys.maxsize) % 10000
 
 
+def base_arg_parser(parser):
+    parser.add_argument('--trainer', type=str, default="VAT_f", metavar='N', help='method list {MLE, VAT, VAT_f, AT} (default: VAT_f)')
+    parser.add_argument('--size', type=int, default=100, help='size of training data set 0=all(default: 100)')
+    parser.add_argument('--epochs', type=int, default=100, metavar='N', help='number of epochs (default: 1000)')
+    parser.add_argument('--seed', type=int, default=1, metavar='N', help='random seed (default: 1)')
+    parser.add_argument('--gpu-id', type=str, default="5", metavar='N', help='gpu id list (default: 5)')
+    parser.add_argument('--log-interval', type=int, default=1, metavar='N', help='iterations to wait before logging status')
+    parser.add_argument('--batch-size', type=int, default=100, help='batch size of training data set (default: 100)')
+    parser.add_argument('--lr', type=float, default=0.002, help='learning rate (default: 0.002)')
+    parser.add_argument('--vis', action='store_true', default=False, help='visual by tensor board')
+    parser.add_argument('--log-dir', type=str, default='', metavar='S', help='tensorboard directory')
+    parser.add_argument('-r', '--resume', type=str, default='', metavar='S', help='resume from pth file')
+    parser.add_argument('--debug', action='store_true', default=False, help='compare log side by side')
+    return parser
+
+
 def set_framework_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -177,67 +193,3 @@ class ExpSaver:
         dir_path = os.path.join(os.environ['HOME'], 'project/runs', dir_marker)
         self.board_path = dir_path
         self.writer = SummaryWriter(log_dir=dir_path)
-
-
-class ExpLoader:
-    """
-    TODO:
-        useless
-    """
-    def __init__(self, path):
-        self.path = path
-        self.args = {}
-        self.load(path)
-
-    def load(self, path):
-        args = {}
-        data_set, size, method = path.split("/")[5:8]
-        args["data-set"] = data_set
-        args["data-size"] = size
-        args["method"] = method
-        args["metrics"] = set([])
-
-        for f in os.listdir(path):
-            if not f.endswith(".npy"):
-                continue
-            parts = f[:-4].split("_")
-            for e in parts:
-                if "=" in e:
-                    continue
-                args["metrics"].add(e)
-            for e in parts:
-                if "=" not in e:
-                    continue
-                key, value = e.split("=")
-                if key not in args:
-                    args[key] = set([])
-                args[key].add(value)
-        self.args = args
-        return args
-
-    def avg_experiments(self):
-        for f in os.listdir(self.path + "/npy"):
-            if not f.endswith(".npy"):
-                continue
-            if "exp=1_" not in f and "exp=0_" not in f:
-                continue
-            f = re.sub("exp=[01]_", "exp=avg_", f)
-            if os.path.isfile(os.path.join(self.path, f)):
-                print("%s exists" % f)
-                continue
-            acc_list = []
-            for e in self.args.get("exp", []):
-                if e == "avg":
-                    continue
-                exp_f = f.replace("exp=avg_", "exp=%s_" % e)
-                exp_f = os.path.join(self.path, "npy", exp_f)
-                if not os.path.isfile(exp_f):
-                    continue
-                acc_list.append(np.load(exp_f))
-            if len(acc_list) == 0:
-                continue
-            array = np.array(acc_list)
-            array = np.mean(array, axis=0)
-
-            np.save(os.path.join(self.path, f), array)
-            np.savetxt(os.path.join(self.path, "txt", f), array[np.newaxis], fmt='%g', delimiter=',')

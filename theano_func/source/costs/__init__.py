@@ -3,9 +3,7 @@ from . import quadratic_loss
 from . import weight_decay
 from . import adversarial_training
 from . import virtual_adversarial_training as vat
-from . import virtual_adversarial_training_plus as vat_p
 from . import virtual_adversarial_training_finite_diff as vat_finite_diff
-from . import vat_ext
 
 from . import error
 
