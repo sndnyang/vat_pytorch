@@ -137,8 +137,8 @@ def train(args):
     ul_i = 0
     for epoch in range(int(args.epochs)):
         # since theano_func uses its now random permutation, hard to get the same permutation
-        # f_permute_train_set()
-        # f_permute_ul_train_set()
+        f_permute_train_set()
+        f_permute_ul_train_set()
         for it in range(int(args.num_batch_it)):
             loss, sup, unsup, pert_err, images, ul_x = f_train(l_i, ul_i)
             l_i = 0 if l_i >= n_train / batch_size - 1 else l_i + 1
@@ -148,7 +148,6 @@ def train(args):
                 print("total loss %g" % loss)
                 print("sup %g" % sup)
                 print("unsup %g" % unsup)
-                # print("pert err %d" % pert_err)
                 print("unlabeled data %g" % ul_x.sum())
                 args.writer.add_scalar("Train/total_loss", loss, epoch * args.num_batch_it + it)
                 args.writer.add_scalar("Train/iter_xent_loss", sup, epoch * args.num_batch_it + it)
@@ -189,16 +188,14 @@ def train(args):
     statuses['error_test'].append(sum_error_test)
     acc = 1 - 1.0 * statuses['error_test'][-1] / n_test
     wlog("final nll_test: %f error_test: %d accuracy:%f" % (statuses['nll_test'][-1], statuses['error_test'][-1], acc))
-    args.writer.add_scalar("Test/Loss", statuses['nll_test'][-1], epoch * args.num_batch_it)
-    args.writer.add_scalar("Test/Acc", acc, epoch * args.num_batch_it)
+    args.writer.add_scalar("Test/Loss", statuses['nll_test'][-1], args.epochs * args.num_batch_it)
+    args.writer.add_scalar("Test/Acc", acc, args.epochs * args.num_batch_it)
 
     make_sure_path_exists("./trained_model")
-    pickle.dump((model, statuses, args), open('./trained_model/' + args.save_filename, 'wb'),
-                pickle.HIGHEST_PROTOCOL)
+    pickle.dump((model, statuses, args), open('./trained_model/' + args.save_filename, 'wb'), pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':
-
     # Theano need to set environment variables firstly
     arg = parse_args()
     import theano
