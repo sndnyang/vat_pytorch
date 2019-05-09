@@ -12,7 +12,7 @@ class CNN9c(nn.Module):
         num_conv = 128
         affine = args.affine
         self.top_bn = args.top_bn
-        self.dropout = args.dropout_rate
+        self.dropout = args.drop
         self.c1 = nn.Conv2d(input_shape[0], num_conv, 3, 1, 1, bias=False)
         self.c2 = nn.Conv2d(num_conv, num_conv, 3, 1, 1, bias=False)
         self.c3 = nn.Conv2d(num_conv, num_conv, 3, 1, 1, bias=False)

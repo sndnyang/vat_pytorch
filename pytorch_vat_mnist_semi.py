@@ -2,15 +2,17 @@ import os
 import time
 import argparse
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
+import numpy as np
 from tensorboardX import SummaryWriter
 
-from ExpUtils import wlog
-from torch_func.utils import *
-from torch_func.mnist_load_dataset import load_dataset
+from ExpUtils import wlog, auto_select_gpu
+from torch_func.utils import set_framework_seed, weights_init_normal
 from torch_func.evaluate import evaluate_classifier
+from torch_func.mnist_load_dataset import load_dataset
 from torch_func.MLP import MLPSemi
 from torch_func.vat import VAT
 
@@ -42,6 +44,9 @@ def parse_args():
 
     args = parser.parse_args()
     args.dir_path = None
+
+    if args.gpu_id == "":
+        args.gpu_id = auto_select_gpu()
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id

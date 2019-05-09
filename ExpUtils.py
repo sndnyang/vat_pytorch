@@ -12,11 +12,20 @@ import argparse
 import numpy as np
 from tensorboardX import SummaryWriter
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(filename)s[line:%(lineno)d]: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(filename)s[line:%(lineno)d]: %(message)s", datefmt="%m-%d %H:%M:%S")
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 wlog = logger.info
 exp_seed = random.randrange(sys.maxsize) % 10000
+
+
+def auto_select_gpu():
+    import GPUtil
+    id_list = GPUtil.getAvailable(order="load", maxLoad=0.7, maxMemory=0.6)
+    if len(id_list) == 0:
+        print("GPU memory is not enough for predicted usage")
+        raise NotImplementedError
+    return str(id_list[0])
 
 
 def base_arg_parser(parser):
@@ -35,16 +44,19 @@ def base_arg_parser(parser):
     return parser
 
 
-def set_framework_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
+def set_framework_seed(seed, debug=False):
     try:
         import torch
+        if debug:
+            # torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = True
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
     except ImportError:
         pass
+    random.seed(seed)
+    np.random.seed(seed)
     try:
         import cupy as cp
         cp.random.seed(seed)

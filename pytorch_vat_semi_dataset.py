@@ -9,10 +9,10 @@ from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 from tensorboardX import SummaryWriter
 
-from ExpUtils import wlog
+from ExpUtils import wlog, auto_select_gpu
 from torch_func.utils import set_framework_seed, weights_init_normal
-from torch_func.load_dataset import load_dataset
 from torch_func.evaluate import evaluate_classifier
+from torch_func.load_dataset import load_dataset
 import torch_func.CNN as CNN
 from torch_func.vat import VAT
 
@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--num-batch-it', type=int, default=400, metavar='N', help='number of batch iterations (default: 400)')
     parser.add_argument('--seed', type=int, default=1, metavar='N', help='random seed (default: 1)')
     parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA training')
-    parser.add_argument('--gpu-id', type=str, default="5", metavar='N', help='gpu id list (default: 5)')
+    parser.add_argument('--gpu-id', type=str, default="", metavar='N', help='gpu id list (default: auto select)')
     parser.add_argument('--log-interval', type=int, default=1, metavar='N', help='iterations to wait before logging status, (default: 1)')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size of training data set (default: 32)')
     parser.add_argument('--ul-batch-size', type=int, default=128, help='size of training data set 0=all(default: 128)')
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument('--top-bn', action='store_true', default=False, help='enable top batch norm layer')
     parser.add_argument('--aug-trans', action='store_true', default=False, help='data augmentation')
     parser.add_argument('--aug-flip', action='store_true', default=False, help='data augmentation flip')
-    parser.add_argument('--dropout-rate', type=float, default=0.5, help='dropout rate, (default: 0.5)')
+    parser.add_argument('--drop', type=float, default=0.5, help='dropout rate, (default: 0.5)')
     parser.add_argument('--log-dir', type=str, default='', metavar='S', help='tensorboard directory, (default: an absolute path)')
     parser.add_argument('--log-arg', type=str, default='trainer-eps-xi-lr-top_bn', metavar='S', help='show the arguments in directory name')
     parser.add_argument('--debug', action='store_true', default=False, help='compare log side by side')
@@ -51,12 +51,12 @@ def parse_args():
     args = parser.parse_args()
     args.dir_path = None
 
+    if args.gpu_id == "":
+        args.gpu_id = auto_select_gpu()
+
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
     args.cuda = not args.no_cuda and torch.cuda.is_available()
-
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = True
 
     device = torch.device("cuda" if args.cuda else "cpu")
     args.device = device

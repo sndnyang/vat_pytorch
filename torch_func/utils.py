@@ -17,10 +17,13 @@ def set_framework_seed(seed, debug=False):
     if debug:
         # torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = True
+    random.seed(seed)
     np.random.seed(seed)
     _ = torch.manual_seed(seed)
     if torch.cuda.is_available():
         _ = torch.cuda.manual_seed(seed)
+        # if use multi-GPUs, maybe it's required
+        # torch.cuda.manual_seed_all(seed)
 
 
 def weights_init_uniform(m):
