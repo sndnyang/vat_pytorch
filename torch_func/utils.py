@@ -1,3 +1,5 @@
+import random
+
 import torch
 import numpy as np
 import torch.nn.functional as nfunc
@@ -15,8 +17,8 @@ def call_bn(bn, x, update_batch_stats=True):
 
 def set_framework_seed(seed, debug=False):
     if debug:
-        # torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     random.seed(seed)
     np.random.seed(seed)
     _ = torch.manual_seed(seed)
@@ -75,3 +77,14 @@ def weights_init_normal(m):
         m.weight = Parameter(tensor, requires_grad=True)
         if m.bias is not None:
             m.bias.data.zero_()
+
+
+def adjust_learning_rate(optimizer, epoch, args):
+    """Sets the learning rate from start_epoch linearly to zero at the end"""
+    if epoch < args.epoch_decay_start:
+        return args.lr
+    lr = float(args.num_epochs - epoch) / (args.num_epochs - args.epoch_decay_start) * args.lr
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+        param_group['betas'] = (0.5, 0.999)
+    return lr

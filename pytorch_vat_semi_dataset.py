@@ -10,7 +10,7 @@ import numpy as np
 from tensorboardX import SummaryWriter
 
 from ExpUtils import wlog, auto_select_gpu
-from torch_func.utils import set_framework_seed, weights_init_normal
+from torch_func.utils import set_framework_seed, weights_init_normal, adjust_learning_rate
 from torch_func.evaluate import evaluate_classifier
 from torch_func.load_dataset import load_dataset
 import torch_func.CNN as CNN
@@ -32,8 +32,8 @@ def parse_args():
     parser.add_argument('--log-interval', type=int, default=1, metavar='N', help='iterations to wait before logging status, (default: 1)')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size of training data set (default: 32)')
     parser.add_argument('--ul-batch-size', type=int, default=128, help='size of training data set 0=all(default: 128)')
-    parser.add_argument('--lr', type=float, default=0.002, help='learning rate (default: 0.002)')
-    parser.add_argument('--lr-decay', type=float, default=0.95, help='learning rate decay (default: 0.95)')
+    parser.add_argument('--lr', type=float, default=0.001, help='learning rate (default: 0.001)')
+    parser.add_argument('--epoch-decay-start', type=float, default=80, help='learning rate decay (default: 0.95)')
     parser.add_argument('--eps', type=float, default=10, help='epsilon for VAT, 10 for cifar10, 2.5 for svhn, (default: 10)')
     parser.add_argument('--xi', type=float, default=1e-6, help='xi for VAT (default: 1e-6)')
     parser.add_argument('--ent_min', action='store_true', default=False, help='enable entropy min')
@@ -53,9 +53,9 @@ def parse_args():
 
     if args.gpu_id == "":
         args.gpu_id = auto_select_gpu()
-
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
+
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
     device = torch.device("cuda" if args.cuda else "cpu")
@@ -81,7 +81,6 @@ def parse_args():
 def train(args):
     """Training function."""
     set_framework_seed(args.seed, args.debug)
-
     train_l, train_ul, test_set = load_dataset("data/%s" % args.dataset, valid=False, dataset_seed=args.seed)
     wlog("N_train_labeled:{}, N_train_unlabeled:{}".format(train_l.size, train_ul.size))
 
@@ -96,8 +95,6 @@ def train(args):
         model.apply(weights_init_normal)
 
     optimizer = optim.Adam(list(model.parameters()), lr=args.lr)
-    # TODO: in VAT, it's a linear scheduler, and setting the mom2
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=args.lr_decay)
     start_epoch = 0
     if args.resume:
         checkpoint = torch.load(args.resume)
@@ -125,15 +122,16 @@ def train(args):
             logits = model(images)
 
             sup_loss = 0
+            ul_loss = 0
 
             # supervised loss
             ce_loss = criterion(logits, labels)
             sup_loss += ce_loss
 
-            ul_loss = vat_criterion(model, ul_images)
             if args.trainer == "mle":
                 total_loss = sup_loss
             else:
+                ul_loss = vat_criterion(model, ul_images)
                 total_loss = sup_loss + ul_loss
 
             optimizer.zero_grad()
@@ -144,21 +142,24 @@ def train(args):
                 n_err, test_loss = evaluate_classifier(model, test_loader, args.device)
                 acc = 1 - n_err / len(test_set)
                 wlog("Epoch: %d Train Loss: %.4f ce: %.5f, vat: %.5f, test loss: %.5f, test acc: %.4f" % (epoch, total_loss, ce_loss, ul_loss, test_loss, acc))
-                pred_y = torch.max(logits, dim=1)[1]
-                train_acc = 1.0 * torch.sum(pred_y == labels).item() / pred_y.shape[0]
                 if args.vis:
+                    # save the model for large dataset cifar10/svhn when enabling visualization in order to reload
+                    torch.save({'epoch': epoch, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict(), 'loss': test_loss, 'acc': acc},
+                               "%s/%s.pth" % (args.dir_path, "model"))
                     args.writer.add_scalar("Train/xent_loss", ce_loss, epoch)
                     args.writer.add_scalar("Train/unsup_loss", ul_loss, epoch)
                     args.writer.add_scalar("Train/total_loss", total_loss, epoch)
+                    args.writer.add_scalar("Test/IterAcc", acc, epoch * args.num_batch_it)
+                    args.writer.add_scalar("Test/Acc", acc, epoch)
+                    pred_y = torch.max(logits, dim=1)[1]
+                    train_acc = 1.0 * torch.sum(pred_y == labels).item() / pred_y.shape[0]
                     args.writer.add_scalar("Train/Acc", train_acc, epoch)
-                    args.writer.add_scalar("Test/EpochAcc", acc, epoch)
-                    if scheduler:
-                        lr = scheduler.get_lr()[0]
-                        wlog("learning rate %f" % lr)
-                        args.writer.add_scalar("optimizer/learning_rate", lr, epoch)
 
-        if scheduler:
-            scheduler.step()
+        lr = adjust_learning_rate(optimizer, epoch, args)
+        if (epoch % args.log_interval) == 0:
+            wlog("learning rate %f" % lr)
+            if args.vis:
+                args.writer.add_scalar("optimizer/learning_rate", lr, epoch)
 
 
 if __name__ == "__main__":
