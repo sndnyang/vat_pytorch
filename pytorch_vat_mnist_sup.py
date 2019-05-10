@@ -23,7 +23,7 @@ def parse_args():
     parser.add_argument('--num-batch-it', type=int, default=500, metavar='N', help='number of batch iterations (default: 500)')
     parser.add_argument('--seed', type=int, default=1, metavar='N', help='random seed (default: 1)')
     parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA training')
-    parser.add_argument('--gpu-id', type=str, default="5", metavar='N', help='gpu id list (default: 5)')
+    parser.add_argument('--gpu-id', type=str, default="", metavar='N', help='gpu id list (default: auto select)')
     parser.add_argument('--log-interval', type=int, default=1, metavar='N', help='iterations to wait before logging status')
     parser.add_argument('--batch-size', type=int, default=100, help='batch size of training data set (default: 100)')
     parser.add_argument('--layer-sizes', type=str, default='784-1200-600-300-150-10', help='MLP for supervised learning on mnist')

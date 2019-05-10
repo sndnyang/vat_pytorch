@@ -36,15 +36,12 @@ class CNN9c(nn.Module):
         self.mp3 = nn.MaxPool2d(2, 2)
         self.aap = nn.AdaptiveAvgPool2d((1, 1))
         self.linear = nn.Linear(128, 10, bias=not self.top_bn)
-        self.drop1 = nn.Dropout2d(self.dropout)
-        self.drop2 = nn.Dropout2d(self.dropout)
 
         if self.top_bn:
             self.bnf = nn.BatchNorm1d(10, affine=affine)
 
-    def forward(self, x, update_batch_stats=True, return_h=False):
+    def forward(self, x, update_batch_stats=True):
         h = x
-        endpoints = {}
         h = self.c1(h)
         h = nfunc.leaky_relu(call_bn(self.bn1, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
         h = self.c2(h)
@@ -53,8 +50,7 @@ class CNN9c(nn.Module):
         h = nfunc.leaky_relu(call_bn(self.bn3, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
         h = self.mp1(h)
         if self.dropout:
-            h = self.drop1(h)
-        endpoints["conv_layer0"] = h
+            h = nfunc.dropout(h, self.dropout)
 
         h = self.c4(h)
         h = nfunc.leaky_relu(call_bn(self.bn4, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
@@ -64,8 +60,7 @@ class CNN9c(nn.Module):
         h = nfunc.leaky_relu(call_bn(self.bn6, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
         h = self.mp2(h)
         if self.dropout:
-            h = self.drop2(h)
-        endpoints["conv_layer1"] = h
+            h = nfunc.dropout(h, self.dropout)
 
         h = self.c7(h)
         h = nfunc.leaky_relu(call_bn(self.bn7, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
@@ -73,15 +68,8 @@ class CNN9c(nn.Module):
         h = nfunc.leaky_relu(call_bn(self.bn8, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
         h = self.c9(h)
         h = nfunc.leaky_relu(call_bn(self.bn9, h, update_batch_stats=update_batch_stats), negative_slope=0.1)
-        h = self.mp3(h)
         h = self.aap(h)
-        endpoints["fc_layer0"] = h
         output = self.linear(h.view(-1, 128))
-        # cifar10 don't use
-        # svhn use top_bn
         if self.top_bn:
             output = call_bn(self.bnf, output, update_batch_stats=update_batch_stats)
-        if return_h:
-            return output, endpoints
-        else:
-            return output
+        return output
