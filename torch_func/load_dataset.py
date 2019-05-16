@@ -56,6 +56,9 @@ class Data:
 
 
 def load_dataset(dir_path, valid=False, dataset_seed=1):
+    if dataset_seed > 5:
+        # 1-5 -> [1, 5],  >5 -> [1, 5]
+        dataset_seed = dataset_seed % 5 + 1
     if valid:
         train_l = load_npz_as_dict(os.path.join(dir_path, 'seed' + str(dataset_seed), 'labeled_train_valid.npz'))
         train_ul = load_npz_as_dict(os.path.join(dir_path, 'seed' + str(dataset_seed), 'unlabeled_train_valid.npz'))

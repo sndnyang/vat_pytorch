@@ -34,9 +34,9 @@ def parse_args():
     parser.add_argument('--lr-decay', type=float, default=0.95, help='learning rate decay (default: 0.95)')
     parser.add_argument('--eps', type=float, default=0.3, help='epsilon for VAT (default: 0.3)')
     parser.add_argument('--xi', type=float, default=1e-6, help='xi for VAT (default: 1e-6)')
+    parser.add_argument('--ent_min', action='store_true', default=False, help='enable entropy min')
     parser.add_argument('--affine', action='store_true', default=False, help='batch norm affine configuration')
     parser.add_argument('--top-bn', action='store_true', default=False, help='enable top batch norm layer')
-    parser.add_argument('--ent_min', action='store_true', default=False, help='enable entropy min')
     parser.add_argument('--log-dir', type=str, default='', metavar='S', help='tensorboard directory, (default: an absolute path)')
     parser.add_argument('--log-arg', type=str, default='trainer-eps-xi-lr-top_bn', metavar='S', help='show the arguments in directory name')
     parser.add_argument('--debug', action='store_true', default=False, help='compare log side by side')
@@ -103,12 +103,12 @@ def train(args):
 
     # Define losses.
     criterion = nn.CrossEntropyLoss()
+    vat_criterion = VAT(args.device, eps=args.eps, xi=args.xi, use_ent_min=args.ent_min, debug=args.debug)
     optimizer = optim.Adam(list(model.parameters()), lr=args.lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=args.lr_decay)
     model.train()
 
     l_i, ul_i = 0, 0
-    vat_criterion = VAT(args.device, eps=args.eps, xi=args.xi, use_ent_min=args.ent_min, debug=args.debug)
 
     # Training part with the same data loading way of official VAT theano code.
     for epoch in range(args.num_epochs):
@@ -146,10 +146,10 @@ def train(args):
             ce_loss = criterion(logits, labels)
             sup_loss += ce_loss
 
-            ul_loss = vat_criterion(model, ul_images)
-            if args.trainer == "mle":
+            if args.trainer == "ce":
                 total_loss = sup_loss
             else:
+                ul_loss = vat_criterion(model, ul_images)
                 total_loss = sup_loss + ul_loss
 
             if it % 100 == 0 or (args.debug and it < 50):

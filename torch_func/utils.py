@@ -1,3 +1,5 @@
+import os
+import sys
 import random
 
 import torch
@@ -79,12 +81,35 @@ def weights_init_normal(m):
             m.bias.data.zero_()
 
 
-def adjust_learning_rate(optimizer, epoch, args):
-    """Sets the learning rate from start_epoch linearly to zero at the end"""
-    if epoch < args.epoch_decay_start:
-        return args.lr
-    lr = float(args.num_epochs - epoch) / (args.num_epochs - args.epoch_decay_start) * args.lr
+def adjust_learning_rate(optimizer, epoch, args, current_lr):
+    if current_lr is None:
+        # Sets the learning rate from start_epoch linearly to zero at the end
+        current_lr = args.lr
+        if epoch < args.epoch_decay_start:
+            return current_lr
+        lr = 0.2 * float(args.num_epochs - epoch) / (args.num_epochs - args.epoch_decay_start) * current_lr
+    else:
+        lr = current_lr
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
         param_group['betas'] = (0.5, 0.999)
     return lr
+
+
+def load_checkpoint_by_marker(args, exp_marker):
+    base_dir = os.path.join(os.environ['HOME'], 'project/runs')
+    dir_path = os.path.join(base_dir, exp_marker)
+    c = 0
+    file_name = ""
+    for p in os.listdir(dir_path):
+        if args.resume in p:
+            c += 1
+            if c == 2:
+                print("can't resume, find 2")
+                sys.exit(-1)
+            file_name = os.path.join(dir_path, p, "model.pth")
+    if file_name == "":
+        print("can't resume, find 0")
+        sys.exit(-1)
+    checkpoint = torch.load(file_name)
+    return checkpoint

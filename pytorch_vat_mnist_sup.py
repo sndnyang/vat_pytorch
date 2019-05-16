@@ -111,16 +111,13 @@ def train(args):
 
             logits = model(images)
 
-            total_loss = 0
-            sup_loss = 0
-
             # supervised loss
             ce_loss = criterion(logits, labels)
-            sup_loss += ce_loss
+            sup_loss = ce_loss
 
             vat_criterion = VAT(args.device, eps=args.eps, xi=args.xi, use_ent_min=args.entmin)
-            ul_loss = vat_criterion(model, images)
-            total_loss += sup_loss + ul_loss
+            unsup_loss = vat_criterion(model, images)
+            total_loss = sup_loss + unsup_loss
 
             optimizer.zero_grad()
             total_loss.backward()
@@ -153,7 +150,8 @@ if __name__ == "__main__":
     try:
         train(arg)
     except KeyboardInterrupt:
-        pass
+        if arg.dir_path:
+            os.rename(arg.dir_path, arg.dir_path + "_stop")
     except BaseException as err:
         traceback.print_exc()
         if arg.dir_path:
