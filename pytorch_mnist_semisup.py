@@ -13,7 +13,7 @@ from ExpUtils import wlog, auto_select_gpu
 from torch_func.utils import set_framework_seed, weights_init_normal
 from torch_func.evaluate import evaluate_classifier
 from torch_func.load_dataset import load_dataset
-from torch_func.model import MLP
+from torch_func.models import MLP
 from torch_func.vat import VAT
 
 
