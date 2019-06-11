@@ -1,11 +1,21 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as nfunc
+import numpy as np
 
 
 def _l2_normalize(d):
     t = d.clone()   # remove from the computing graph
-    normed_d = t / torch.sqrt(torch.sum(t.view(d.shape[0], -1) ** 2, dim=1)).reshape(-1, 1, 1, 1)
+    norm = torch.sqrt(torch.sum(t.view(d.shape[0], -1) ** 2, dim=1))
+    if len(t.shape) == 4:
+        norm = norm.reshape(-1, 1, 1, 1)
+    elif len(t.shape) == 3:
+        norm = norm.reshape(-1, 1, 1)
+    elif len(t.shape) == 2:
+        norm = norm.reshape(-1, 1)
+    else:
+        raise NotImplementedError
+    normed_d = t / (norm + 1e-10)
     return normed_d
 
 
@@ -29,15 +39,18 @@ class VAT(object):
         self.use_ent_min = use_ent_min
 
     def __call__(self, model, image, return_noise=False, detach_way=0):
-        # Given eps = 0.3 and xi=1e-6
         logits = model(image, update_batch_stats=False)
         prob_x = nfunc.softmax(logits.detach(), dim=1)
         log_prob_x = nfunc.log_softmax(logits.detach(), dim=1)
-        d = _l2_normalize(torch.randn(image.size()).to(self.device))
+        # np generator is more controllable than torch.randn(image.size())
+        d = np.random.standard_normal(image.size())
+        d = _l2_normalize(torch.FloatTensor(d).to(self.device))
 
         for ip in range(self.k):
+            d *= self.xi
             d.requires_grad = True
-            x_hat = image + d * self.xi
+            t = image.detach()
+            x_hat = t + d
             logits_x_hat = model(x_hat, update_batch_stats=False)
             if detach_way == 1:
                 prob_x_hat = torch.exp(nfunc.log_softmax(logits_x_hat, dim=1))
