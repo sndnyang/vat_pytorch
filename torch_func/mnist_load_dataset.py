@@ -1,11 +1,12 @@
 import sys
 
 import numpy as np
+from .load_dataset import Data
 
 
 def load_mnist_dataset():
     if sys.version_info.major == 3:
-        import cPickle as pickle
+        import /DatacPickle as pickle
         dataset = pickle.load(open('dataset/mnist.pkl', 'rb'), encoding="bytes")
     else:
         import pickle
